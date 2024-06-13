@@ -1,0 +1,10 @@
+[package]
+name = "peacekeeper_bot"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+env_logger = "0.11.3"
+poise = "0.5.7"
+# poise_macros = "0.6.1"
+tokio = { version = "1.36.0", features = ["full"] }
