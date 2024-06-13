@@ -99,6 +99,7 @@ async fn event_handler(
                 println!( "==============================================================================================");
                 println!( "author:{}", message.author);
                 println!( "message:{}", message.content); 
+                println!( "user_id:{}", add_reaction.user_id.unwrap_or_default()); 
                 for r in message.reactions.iter()
                 {//メッセージに付与された絵文字を数える
                     println!( "{}, count:{}"
