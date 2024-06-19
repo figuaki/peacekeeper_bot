@@ -10,8 +10,9 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 //config
 //Botの有効・無効を切り替えるフレーズ
 const WAKE_UP_PHRASE: &str = "wake_up";
+const PING_PHRASE: &str = "cq_cq";
 //通報用スタンプが何個溜まったらメッセージを削除するかの閾値
-const THRESHOLD:u64 = 9;
+const THRESHOLD:u64 = 6;
 
 
 // 最低限のデータ
@@ -74,16 +75,28 @@ async fn event_handler(
         //新規メッセージに対するイベント
         Event::Message { new_message } => {
             if new_message.author.id == data.user_id.load(Ordering::SeqCst) //var("DISCORD_USER_ID").expect("")
-            && new_message.content.to_lowercase().contains(WAKE_UP_PHRASE) 
             && new_message.author.id != ctx.cache.current_user().id
-            {//管理者のメッセージに含まれるキーフレーズによりBOTの有効無効を切り替える
-                let mentions = data.poise_mentions.load(Ordering::SeqCst) + 1;
-                let enable = !data.enable.load(Ordering::SeqCst);
-                data.poise_mentions.store(mentions, Ordering::SeqCst);
-                data.enable.store(enable, Ordering::SeqCst);
-                new_message
-                    .reply(ctx, format!("{} 回目の呼び出し → {}", mentions, if (enable) {"起動"} else {"無効"}))
-                    .await?;
+            {
+                if  new_message.content.to_lowercase().contains(WAKE_UP_PHRASE)
+                {
+                    //管理者のメッセージに含まれるキーフレーズによりBOTの有効無効を切り替える
+                    let mentions = data.poise_mentions.load(Ordering::SeqCst) + 1;
+                    let enable = !data.enable.load(Ordering::SeqCst);
+                    data.poise_mentions.store(mentions, Ordering::SeqCst);
+                    data.enable.store(enable, Ordering::SeqCst);
+                    new_message
+                        .reply(ctx, format!("{} 回目の呼び出し → {}", mentions, if (enable) {"起動"} else {"無効"}))
+                        .await?;
+                }
+                else if new_message.content.to_lowercase().contains(PING_PHRASE)
+                {
+                    //生存確認
+                    let enable = data.enable.load(Ordering::SeqCst);
+                    new_message
+                        .reply(ctx, format!("current_status:{}",enable))
+                        .await?;
+                } 
+                
             }
         }
         //リアクション(Emoji)の付与イベント
@@ -120,7 +133,8 @@ async fn event_handler(
                     if THRESHOLD < r.count  && id.is_some() && id.unwrap() == report_emoji_id
                     {
                         //message.reply(ctx, format!("Hi, I saw {} pressed 5 times on this message", add_reaction.emoji)).await?;
-                        message.reply(ctx, format!("通報によりこのメッセージを削除します")).await?;
+                        let user_id = data.user_id.load(Ordering::SeqCst);
+                        message.reply(ctx, format!("通報によりこのメッセージを削除します \n <@{}>", user_id)).await?;
                         message.delete(ctx).await?;
                     }
                 }
