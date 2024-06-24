@@ -46,7 +46,7 @@ InstallはGuild Installにしました
 
 `cargo run --release`
 
-起動したら適当な投稿にDISCORD_REPORT_EMOJI_IDで指定した絵文字をコマンドプロンプト(windows)，ターミナル(Linux, mac)にログが出力されます
+起動したら適当な投稿にDISCORD_REPORT_EMOJI_IDで指定した絵文字でリアクションすると，コマンドプロンプト(windows)，ターミナル(Linux, mac)にログが出力されます.  
 またDISCORD_USER_IDで指定したユーザが適当なテキストチャンネルで`cq_cq`と投稿するとbotが反応を返します．
 
 ## 仕様：  
