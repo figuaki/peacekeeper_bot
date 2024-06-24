@@ -7,6 +7,8 @@ type Error = Box<dyn std::error::Error + Send + Sync>;
 #[allow(unused)]
 type Context<'a> = poise::Context<'a, Data, Error>;
 
+use chrono::{Utc, Local, DateTime, Date};
+
 //config
 //Botの有効・無効を切り替えるフレーズ
 const WAKE_UP_PHRASE: &str = "wake_up";
@@ -43,7 +45,7 @@ async fn main() {
         .setup(move |_ctx, _ready, _framework| {
             Box::pin(async move {
                 Ok(Data {
-                    enable: AtomicBool::new(false),
+                    enable: AtomicBool::new(true),
                     poise_mentions: AtomicU32::new(0),
                     //実行をON/OFFを切り替えられる管理者のユーザIDを環境変数から指定
                     user_id: AtomicU64::new(var("DISCORD_USER_ID").expect("Missing `DISCORD_USER_ID` env var, see README for more information.").parse::<u64>().unwrap()),
@@ -91,6 +93,7 @@ async fn event_handler(
                 else if new_message.content.to_lowercase().contains(PING_PHRASE)
                 {
                     //生存確認
+                    println!("ping");
                     let enable = data.enable.load(Ordering::SeqCst);
                     new_message
                         .reply(ctx, format!("current_status:{}",enable))
@@ -102,25 +105,20 @@ async fn event_handler(
         //リアクション(Emoji)の付与イベント
         Event::ReactionAdd { add_reaction } =>
         {
-            println!("detect reaction");
+            //println!("detect reaction");
             let enable = data.enable.load(Ordering::SeqCst);
             if(enable)
             {
                 let message = add_reaction.message(ctx).await?;
                 let report_emoji_id = data.report_emoji_id.load(Ordering::SeqCst);
-                //logging
-                println!( "==============================================================================================");
-                println!( "author:{}", message.author);
-                println!( "message:{}", message.content); 
-                println!( "user_id:{}", add_reaction.user_id.unwrap_or_default()); 
                 for r in message.reactions.iter()
                 {//メッセージに付与された絵文字を数える
-                    println!( "{}, count:{}"
-                            , match &r.reaction_type
-                            { ReactionType::Custom{animated, id, name} => format!("custom:{}, {}", id.to_string() ,match name {Some(x)=>x, None=>""})
-                            , ReactionType::Unicode(text) => format!("unicode:{}", text.to_string())
-                            , _=> "_".to_string()} 
-                            , r.count);
+                    // println!( "{}, count:{}"
+                    //         , match &r.reaction_type
+                    //         { ReactionType::Custom{animated, id, name} => format!("custom:{}, {}", id.to_string() ,match name {Some(x)=>x, None=>""})
+                    //         , ReactionType::Unicode(text) => format!("unicode:{}", text.to_string())
+                    //         , _=> "_".to_string()} 
+                    //         , r.count);
 
                     let id = match &r.reaction_type
                     {
@@ -130,12 +128,21 @@ async fn event_handler(
                     };
 
                     //指定されたカスタム絵文字が一定数溜まったら削除
-                    if THRESHOLD < r.count  && id.is_some() && id.unwrap() == report_emoji_id
+                    if id.is_some() && id.unwrap() == report_emoji_id 
                     {
-                        //message.reply(ctx, format!("Hi, I saw {} pressed 5 times on this message", add_reaction.emoji)).await?;
-                        let user_id = data.user_id.load(Ordering::SeqCst);
-                        message.reply(ctx, format!("通報によりこのメッセージを削除します \n <@{}>", user_id)).await?;
-                        message.delete(ctx).await?;
+                        //println!( "=={}", Local::now());
+                        println!( "author:{}", message.author);
+                        println!( "message:{}", message.content); 
+                        println!( "user_id:{}", add_reaction.user_id.unwrap_or_default());
+                        println!( "count:{}", r.count);
+                        if THRESHOLD < r.count 
+                        {
+                            //message.reply(ctx, format!("Hi, I saw {} pressed 5 times on this message", add_reaction.emoji)).await?;
+                            //let user_id = data.user_id.load(Ordering::SeqCst);
+                            //message.reply(ctx, format!("通報によりこのメッセージを削除します \n <@{}>", user_id)).await?;
+                            message.reply(ctx, format!("通報によりこのメッセージを削除します")).await?;
+                            message.delete(ctx).await?;
+                        }
                     }
                 }
             }
