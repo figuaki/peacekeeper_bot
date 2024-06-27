@@ -138,9 +138,9 @@ async fn event_handler(
                         if THRESHOLD < r.count 
                         {
                             //message.reply(ctx, format!("Hi, I saw {} pressed 5 times on this message", add_reaction.emoji)).await?;
-                            //let user_id = data.user_id.load(Ordering::SeqCst);
-                            //message.reply(ctx, format!("通報によりこのメッセージを削除します \n <@{}>", user_id)).await?;
-                            message.reply(ctx, format!("通報によりこのメッセージを削除します")).await?;
+                            let user_id = data.user_id.load(Ordering::SeqCst);
+                            message.reply(ctx, format!("通報によりこのメッセージを削除します \n <@{}>", user_id)).await?;
+                            //message.reply(ctx, format!("通報によりこのメッセージを削除します")).await?;
                             message.delete(ctx).await?;
                         }
                     }
