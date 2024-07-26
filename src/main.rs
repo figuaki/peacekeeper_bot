@@ -1,4 +1,5 @@
 use std::env::var;
+use std::ptr::addr_eq;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use poise::serenity_prelude::{self as serenity, ReactionType};
 use poise::Event;
@@ -135,6 +136,7 @@ async fn event_handler(
                         println!( "message:{}", message.content); 
                         println!( "user_id:{}", add_reaction.user_id.unwrap_or_default());
                         println!( "count:{}", r.count);
+                        
                         if THRESHOLD < r.count 
                         {
                             //message.reply(ctx, format!("Hi, I saw {} pressed 5 times on this message", add_reaction.emoji)).await?;
@@ -143,6 +145,11 @@ async fn event_handler(
                             //message.reply(ctx, format!("通報によりこのメッセージを削除します")).await?;
                             message.delete(ctx).await?;
                         }
+                        else 
+                        if message.author.id == ctx.cache.current_user().id && message.content.contains(&add_reaction.user_id.unwrap_or_default().to_string())
+                        {
+                            message.delete(ctx).await?;
+                        } 
                     }
                 }
             }
