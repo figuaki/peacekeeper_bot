@@ -1,6 +1,7 @@
 use std::env::var;
 use std::ptr::addr_eq;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
+use std::thread::{self, Thread};
 use poise::serenity_prelude::{self as serenity, ReactionType};
 use poise::Event;
 
@@ -12,8 +13,8 @@ use chrono::{Utc, Local, DateTime, Date};
 
 //config
 //Botの有効・無効を切り替えるフレーズ
-const WAKE_UP_PHRASE: &str = "wake_up";
-const PING_PHRASE: &str = "cq_cq";
+const WAKE_UP_PHRASE: &str = "!wake";
+const PING_PHRASE: &str = "!cq";
 //通報用スタンプが何個溜まったらメッセージを削除するかの閾値
 const THRESHOLD:u64 = 6;
 
@@ -97,20 +98,33 @@ async fn event_handler(
                     println!("ping");
                     let enable = data.enable.load(Ordering::SeqCst);
                     new_message
-                        .reply(ctx, format!("current_status:{}",enable))
+                        .reply(ctx, format!("削除botは起動中で{}状態です", if (enable) {"有効"} else {"無効"}))
                         .await?;
                 } 
                 
             }
+
+            
         }
         //リアクション(Emoji)の付与イベント
         Event::ReactionAdd { add_reaction } =>
         {
+            let thread_id = thread::current().id();
             //println!("detect reaction");
             let enable = data.enable.load(Ordering::SeqCst);
             if(enable)
             {
-                let message = add_reaction.message(ctx).await?;
+                println!("{:?}: let message = match add_reaction.message(ctx).await", thread_id);
+                let message = match add_reaction.message(ctx).await {
+                    Ok(v) => v, 
+                    Err(e) => 
+                    {
+                        println!("Error(add_reaction.message):{:?}",e);
+                        return Err(Box::new(e))
+                    },
+                }; 
+                
+                println!("{:?}: let report_emoji_id = data.report_emoji_id.load(Ordering::SeqCst);", thread_id);
                 let report_emoji_id = data.report_emoji_id.load(Ordering::SeqCst);
                 for r in message.reactions.iter()
                 {//メッセージに付与された絵文字を数える
@@ -121,6 +135,7 @@ async fn event_handler(
                     //         , _=> "_".to_string()} 
                     //         , r.count);
 
+                    //println!("{:?}: let id = match &r.reaction_type", thread_id);
                     let id = match &r.reaction_type
                     {
                           ReactionType::Custom{animated, id, name} => Some(id.0) 
@@ -129,6 +144,7 @@ async fn event_handler(
                     };
 
                     //指定されたカスタム絵文字が一定数溜まったら削除
+                    //println!("{:?}: if id.is_some() && id.unwrap() == report_emoji_id ", thread_id);
                     if id.is_some() && id.unwrap() == report_emoji_id 
                     {
                         //println!( "=={}", Local::now());
@@ -137,21 +153,52 @@ async fn event_handler(
                         println!( "user_id:{}", add_reaction.user_id.unwrap_or_default());
                         println!( "count:{}", r.count);
                         
+                        println!("{:?}: if THRESHOLD < r.count || add_reaction.user_id.unwrap_or_default() == data.user_id.load(Ordering::SeqCst)", thread_id);
                         if THRESHOLD < r.count 
+                        //|| add_reaction.user_id.unwrap_or_default() == data.user_id.load(Ordering::SeqCst)
                         {
                             //message.reply(ctx, format!("Hi, I saw {} pressed 5 times on this message", add_reaction.emoji)).await?;
+                            println!("{:?}: let user_id = data.user_id.load(Ordering::SeqCst);", thread_id);
                             let user_id = data.user_id.load(Ordering::SeqCst);
-                            message.reply(ctx, format!("通報によりこのメッセージを削除します \n <@{}>", user_id)).await?;
+                            println!("{:?}: if let Err(e) = message.reply(ctx, format!(通報によりこのメッセージを削除します))", thread_id);
+                            if let Err(e) = message.reply(ctx, format!("通報によりこのメッセージを削除します \n <@{}>", user_id))
+                            .await
+                            {
+                                println!("{:?}: Error(message.reply): {:?}", thread_id ,e);
+                                //クソコード
+                                if let Err(e) = message.delete(ctx).await 
+                                {
+                                    if let Err(e) = message.delete(ctx).await 
+                                    {
+                                        if let Err(e) = message.delete(ctx).await 
+                                        {
+                                            println!("{:?}: Err(message.delete):{:?}", thread_id, e);
+                                            return Err(Box::new(e));
+                                        }
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                //クソコード
+                                if let Err(e) = message.delete(ctx).await 
+                                {
+                                    if let Err(e) = message.delete(ctx).await 
+                                    {
+                                        if let Err(e) = message.delete(ctx).await 
+                                        {
+                                            println!("{:?}: Err(message.delete):{:?}", thread_id, e);
+                                            return Err(Box::new(e));
+                                        }
+                                    }
+                                }
+                            }
+
                             //message.reply(ctx, format!("通報によりこのメッセージを削除します")).await?;
-                            message.delete(ctx).await?;
                         }
-                        else 
-                        if message.author.id == ctx.cache.current_user().id && message.content.contains(&add_reaction.user_id.unwrap_or_default().to_string())
-                        {
-                            message.delete(ctx).await?;
-                        } 
-                    }
+                    } 
                 }
+                println!("{:?}: End", thread_id);
             }
         }
         _ => {}
